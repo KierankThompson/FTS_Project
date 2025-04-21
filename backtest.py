@@ -359,7 +359,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
 
  
     
-backtest('2019-10-21','2021-10-18')
+
         
             
         
