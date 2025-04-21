@@ -225,7 +225,11 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
             allocations['JPM'] = round(jpmVol / totalVol,2)
             allocations['WMT'] = round(wmtVol / totalVol,2)
             allocations['V'] = round(vVol / totalVol,2)
-
+        if current_day not in stats.index:
+            if prev_day in stats.index:
+                stats.loc[current_day, 'aum'] = stats.loc[prev_day, 'aum']
+            else:
+                stats.loc[current_day, 'aum'] = startingMoney
         
         for key, df in dataframes.items():
            
@@ -343,7 +347,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
         
             totalpnl += gross_pnl
             stats.loc[current_day, f'{key} ret'] = gross_pnl / previous_aum
-            stats.loc[current_day, 'aum'] = gross_pnl + previous_aum
+            stats.loc[current_day, 'aum'] += gross_pnl 
 
 
     print("-------------------")
@@ -355,7 +359,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
 
  
     
-    
+backtest('2019-10-21','2021-10-18')
         
             
         
