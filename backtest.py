@@ -1,17 +1,17 @@
 import pandas as pd
 import numpy as np
 from arch import arch_model
-import time as t
-from datetime import time
 from sklearn.linear_model import LinearRegression
+from datetime import datetime
 
 
-def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt_vol=0.05, v_vol=0.05, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1,oterms=0,qterms=1, tradefreq=30):
+def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt_vol=0.01, v_vol=0.01, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1, oterms=0, qterms=1, tradefreq=30, maxLeverage=2):
     
     print("loading dataframes...")
     allocations = {'JPM':0.33,'WMT':0.33,'V':0.33}
     cost_basis = {'JPM':0,"WMT":0,"V":0}
     numShares = {'JPM':0,"WMT":0,"V":0}
+    targetVol = {'JPM':jpm_vol,"WMT":wmt_vol,"V":v_vol}
     curMoney = startingMoney
 
     jpmDF = pd.read_csv('JPM cleaned.csv')
@@ -72,10 +72,9 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     
     
 
-    open_time = time(13, 30)
-    close_time = time(20, 0)
+    
     print("generating statstics...")
-    start = t.time()
+    
     for key, df in dataframes.items():
         daily_groups = df.groupby('day')
         all_days = df['day'].unique()
@@ -170,10 +169,10 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     all_days = sorted(set(day for df in dataframes.values() for day in df['day'].unique()))
     end_date_index = all_days.index(pd.to_datetime(endDate).date()) if pd.to_datetime(endDate).date() in all_days else len(all_days)
 
-    stats = pd.DataFrame(index=[day for day in pd.date_range(start=startDate, end=endDate) if day.date() in all_days])
+    stats = pd.DataFrame()
 
     stats['aum'] = startingMoney
-    stats['ret'] = np.nan
+    
 
     
     stats['JPM Allocation'] = np.nan
@@ -181,13 +180,22 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     stats['JPM Sell'] = np.nan
     stats['JPM Shares'] = np.nan
     stats['JPM Cost Basis'] = np.nan
-
+    stats['JPM Upper'] = np.nan
+    stats['JPM Lower'] = np.nan
+    stats['JPM Average VWAP'] = np.nan
+    stats['WMT Ret'] = np.nan
+ 
+    
     
     stats['WMT Allocation'] = np.nan
     stats['WMT Buy'] = np.nan
     stats['WMT Sell'] = np.nan
     stats['WMT Shares'] = 0
     stats['WMT Cost Basis'] = 0
+    stats['WMT Upper'] = np.nan
+    stats['WMT Lower'] = np.nan
+    stats['WMT Average VWAP'] = np.nan
+    stats['WMT Ret'] = np.nan
 
     
     stats['V Allocation'] = np.nan
@@ -195,13 +203,18 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     stats['V Sell'] = np.nan
     stats['V Shares'] = 0
     stats['V Cost Basis'] = 0
+    stats['V Upper'] = np.nan
+    stats['V Lower'] = np.nan
+    stats['V Average VWAP'] = np.nan
+    stats['V Ret'] = np.nan
 
     monthSeen = set([pd.to_datetime(startDate).strftime('%Y-%m')])
     print("starting backtest...")
-    
+    totalpnl = 0
     for d in range(all_days.index(pd.to_datetime(startDate).date()), end_date_index):
         current_day = all_days[d]
         prev_day = all_days[d-1]
+        
         current_month = pd.to_datetime(current_day).strftime('%Y-%m')
         if current_month not in monthSeen:
             monthSeen.add(current_month)
@@ -213,11 +226,9 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
             allocations['WMT'] = round(wmtVol / totalVol,2)
             allocations['V'] = round(vVol / totalVol,2)
 
-
+        
         for key, df in dataframes.items():
            
-
-
             if current_day > pd.to_datetime(endDate).date():
                 break
 
@@ -228,53 +239,119 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
             prev_day_data = daily_groups[key].get_group(prev_day)
 
             stats.loc[current_day, f'{key} Allocation'] = allocations[key]
+            previous_aum = 0
+            prev_basis = 0
+            prev_shares = 0
             if prev_day in stats.index:
-                stats.loc[current_day, f'{key} Shares'] = stats.loc[prev_day, f'{key} Shares']
+                prev_shares = stats.loc[prev_day, f'{key} Shares']
+                prev_basis = stats.loc[prev_day, f'{key} Cost Basis']
+                previous_aum = stats.loc[prev_day, 'aum']
             else:
-                stats.loc[current_day, f'{key} Shares'] = 0
-            if prev_day in stats.index:
-                stats.loc[current_day, f'{key} Cost Basis'] = stats.loc[prev_day, f'{key} Cost Basis']
-            else:
-                stats.loc[current_day, f'{key} Cost Basis'] = 0
+                prev_shares = 0
+                prev_basis = 0
+                previous_aum = startingMoney
             
             open_price = current_day_data['open'].iloc[0]
             prev_close_price = prev_day_data['close'].iloc[-1]
             upper_bound = max(open_price, prev_close_price) * (1+current_day_data['egarch_vol'].iloc[0])
             lower_bound = min(open_price, prev_close_price) * (1-current_day_data['egarch_vol'].iloc[0])
-            print(current_day_data['dvol'].iloc[0])
-            print(current_day_data['egarch_vol'].iloc[0])
+            stats.loc[current_day, f'{key} Upper'] = upper_bound
+            stats.loc[current_day, f'{key} Lower'] = upper_bound
 
 
+            predicted_close_return = current_day_data['intercept'].iloc[0] + current_day_data['coef'].iloc[0]*current_day_data['open_return'].iloc[0]
+           
+            regressionSignal = False
+            if (current_day_data['open_return'].iloc[0] * predicted_close_return) > 0:
+                regressionSignal = True
             
 
+            close_prices = current_day_data['close']
+            vwap = current_day_data['vwap']
+            stats.loc[current_day, f'{key} Average VWAP'] = current_day_data['vwap'].mean()
+            signals = np.zeros_like(close_prices)
+            signals[(close_prices > upper_bound) & (close_prices > vwap)] = 1
+            signals[(close_prices < lower_bound) & (close_prices < vwap)] = -1
             
+            trade_indices = np.where((current_day_data["min_from_open"] % tradefreq == 0) & (current_day_data["min_from_open"] > 30))[0]
+            exposure = np.full(len(current_day_data), np.nan)  
+            exposure[trade_indices] = signals[trade_indices]  
+            
+            last_valid = np.nan  
+            filled_values = []  
+            for value in exposure:
+                if not np.isnan(value):  
+                    last_valid = value
+                if last_valid == 0:  
+                    last_valid = np.nan
+                filled_values.append(last_valid)
 
-
-
-
-
-
-
-
-
+            curPos = 0
+            exposure = pd.Series(filled_values, index=current_day_data.index).shift(1).fillna(0).values
+            gross_pnl = 0
+            share_price = 0
+            num_shares = 0
+            purchase_cost = 0
+            for i in range(len(exposure)):
+                    if exposure[i] > 0 and curPos == 0 and regressionSignal:
+                        if current_day_data['open_return'].iloc[0] > 0 and predicted_close_return > 0:
+                            share_price = current_day_data['close'].iloc[i]
+                            num_shares = round(round(previous_aum * allocations[key]) / share_price * min(targetVol[key] / current_day_data['dvol'].iloc[0], maxLeverage))
+                            curPos = num_shares
+                            stats.loc[current_day, f'{key} Buy'] = current_day_data.index[i].time().strftime('%H:%M:%S')
+                    elif exposure[i] < 0 and curPos == 0 and regressionSignal:
+                        if current_day_data['open_return'].iloc[0] < 0 and predicted_close_return < 0:
+                            share_price = current_day_data['close'].iloc[i]
+                            num_shares = round(round(previous_aum * allocations[key]) / share_price * min(targetVol[key] / current_day_data['dvol'].iloc[0], maxLeverage))
+                            stats.loc[current_day, f'{key} Sold'] = current_day_data.index[i].time().strftime('%H:%M:%S')
+                            if prev_shares > 0:
+                                num_shares_to_sell = min(prev_shares, num_shares)
+                                gross_pnl += num_shares_to_sell * (prev_basis- share_price)
+                                prev_shares -= num_shares_to_sell
+                                num_shares = max(num_shares - num_shares_to_sell, 0)
+                            curPos = -num_shares
+                    elif exposure[i] == 0:
+                        if curPos < 0:
+                            stats.loc[current_day, f'{key} Buy'] = current_day_data.index[i].time().strftime('%H:%M:%S')
+                            gross_pnl += (share_price - current_day_data['close'].iloc[i]) * num_shares
+                            curPos = 0
+                            share_price = 0
+                            num_shares = 0
+                            prev_basis = 0
+                            break
+                        elif curPos > 0:
+                            stats.loc[current_day, f'{key} Sold'] = current_day_data.index[i].time().strftime('%H:%M:%S')
+                            gross_pnl += (current_day_data['close'].iloc[i] - share_price) * num_shares
+                            gross_pnl += (current_day_data['close'].iloc[i] - prev_basis) * prev_shares
+                            curPos = 0
+                            share_price = 0
+                            prev_basis = 0
+                            prev_shares = 0
+                            break
+            if curPos < 0:
+                gross_pnl = (share_price - current_day_data['close'].iloc[-1]) * num_shares
+                curPos = 0
+                share_price = 0
+            
+            if (prev_shares + curPos) != 0:
+                prev_basis = ((prev_shares * prev_basis) + (curPos * share_price)) / (prev_shares + curPos)
+            else:
+                prev_basis = 0
+            prev_shares += curPos
+            stats.loc[current_day, f'{key} Cost Basis'] = prev_basis
+            stats.loc[current_day, f'{key} Shares'] = prev_shares
         
+            totalpnl += gross_pnl
+            stats.loc[current_day, f'{key} ret'] = gross_pnl / previous_aum
+            stats.loc[current_day, 'aum'] = gross_pnl + previous_aum
 
 
-    
-            
-
-    
-                
-                    
-            
-
-
-            
-    end = t.time()
-    print(f"{end - start}")
-  
-                
-
+    print("-------------------")
+    print("")
+    print(f"Total Profit: {totalpnl}")
+    current_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    print(f"results written to backtest{current_time}.csv")
+    stats.to_csv(f'backtest{current_time}.csv', index=True)
 
  
     
@@ -289,4 +366,4 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     
     
     
-backtest('2020-09-25','2021-01-25')
+backtest('2018-10-25','2021-01-25')
