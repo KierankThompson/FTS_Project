@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # Config
-csv_path = "jpm.csv"  # Replace this
+csv_path = "visa.csv"  # Replace this
 timestamp_col = "ts_event"
 
 # Load and parse timestamps
