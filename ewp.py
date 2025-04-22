@@ -25,9 +25,9 @@ def getBenchmark(startDate,endDate,startingMoney=1000000):
     stats["JPM Assets"] = 0
     stats["JPM Return"] = 0
     stats["WMT Assets"] = 0
-    stats["WMT Return"]
+    stats["WMT Return"] = 0
     stats["V Assets"] = 0
-    stats["V Return"]
+    stats["V Return"] = 0
     stats["Total Assets"] = 0
 
     for d in range(start_date_index, end_date_index):
@@ -35,8 +35,8 @@ def getBenchmark(startDate,endDate,startingMoney=1000000):
         prev_day = all_days[d-1]
         for key, df in dataframes.items():
             if current_day in daily_groups[key].groups and prev_day in daily_groups[key].groups:
-                prev_close = daily_groups[key].get_group(prev_day)['price_close'].iloc[-1]
-                current_close = daily_groups[key].get_group(current_day)['price_close'].iloc[-1]
+                prev_close = daily_groups[key].get_group(prev_day)['close'].iloc[-1]
+                current_close = daily_groups[key].get_group(current_day)['close'].iloc[-1]
                 percent_return = (current_close - prev_close) / prev_close
                 stats.loc[current_day, f'{key} Return'] = percent_return
                 money_tracker[key] *= (1 + percent_return)
@@ -46,7 +46,7 @@ def getBenchmark(startDate,endDate,startingMoney=1000000):
     print(f"results written to benchmark{startDate}-{endDate}.csv")
     stats.to_csv(f'benchmark{startDate}-{endDate}.csv', index=True)
 
-            
+getBenchmark("2022-04-01","2025-04-01")          
 
 
 
