@@ -1,2 +1,3 @@
 backtest*.csv
+benchmark*.csv
 cleaning.py
