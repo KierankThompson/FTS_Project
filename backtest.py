@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime
 
 
-def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt_vol=0.01, v_vol=0.01, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1, oterms=0, qterms=1, tradefreq=30, maxLeverage=2):
+def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt_vol=0.05, v_vol=0.05, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1, oterms=0, qterms=1, tradefreq=30, maxLeverage=5):
     
     print("loading dataframes...")
     allocations = {'JPM':0.33,'WMT':0.33,'V':0.33}
@@ -183,7 +183,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
     stats['JPM Upper'] = np.nan
     stats['JPM Lower'] = np.nan
     stats['JPM Average VWAP'] = np.nan
-    stats['WMT Ret'] = np.nan
+    stats['JPM Ret'] = np.nan
  
     
     
@@ -260,7 +260,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
             upper_bound = max(open_price, prev_close_price) * (1+current_day_data['egarch_vol'].iloc[0])
             lower_bound = min(open_price, prev_close_price) * (1-current_day_data['egarch_vol'].iloc[0])
             stats.loc[current_day, f'{key} Upper'] = upper_bound
-            stats.loc[current_day, f'{key} Lower'] = upper_bound
+            stats.loc[current_day, f'{key} Lower'] = lower_bound
 
 
             predicted_close_return = current_day_data['intercept'].iloc[0] + current_day_data['coef'].iloc[0]*current_day_data['open_return'].iloc[0]
@@ -357,7 +357,7 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.01, wmt
     print(f"results written to backtest{current_time}.csv")
     stats.to_csv(f'backtest{current_time}.csv', index=True)
 
- 
+backtest("2019-03-13","2021-05-01") 
     
 
         
