@@ -5,7 +5,7 @@ from sklearn.linear_model import LinearRegression
 from datetime import datetime
 
 
-def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt_vol=0.05, v_vol=0.05, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1, oterms=0, qterms=1, tradefreq=30, maxLeverage=5):
+def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt_vol=0.05, v_vol=0.05, targetvol = 0.2, logreturns=False, egarchLog=True, pterms=1, oterms=0, qterms=1, tradefreq=30, maxLeverage=4):
     
     print("loading dataframes...")
     allocations = {'JPM':0.33,'WMT':0.33,'V':0.33}
@@ -357,7 +357,6 @@ def backtest(startDate,endDate,startingMoney=1000000, lag=14, jpm_vol= 0.05, wmt
     print(f"results written to backtest{current_time}.csv")
     stats.to_csv(f'backtest{current_time}.csv', index=True)
 
-backtest("2019-03-13","2021-05-01") 
     
 
         
